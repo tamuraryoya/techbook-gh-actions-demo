@@ -1,7 +1,8 @@
 name: GitHub Pagesデプロイ
 on:
   push:
-    branch: feature/workflows
+    branches:
+      - feature/workflows
 
 jobs:
   deploy:
