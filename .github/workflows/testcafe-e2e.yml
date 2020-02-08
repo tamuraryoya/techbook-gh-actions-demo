@@ -1,0 +1,27 @@
+name: E2Eテスト
+on: push
+
+jobs:
+  test:
+    name: E2Eテスト
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+      - name: Yarnキャッシュディレクトリパス取得
+        id: yarn-cache
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+      - uses: actions/cache@v1
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install
+      - run: yarn build
+      - run: yarn e2e:headless -s takeOnFails=true
+      - uses: actions/upload-artifact@v1
+        with:
+          name: e2e-failed-screenshots
+          path: screenshots
+        if: failure()

@@ -1,0 +1,61 @@
+name: Pull Requestプレビュー
+on:
+  pull_request:
+    type: [opened, synchronize, reopened]
+env:
+  AWS_S3_BUCKET: gh-actions-pr-preview
+
+jobs:
+  deploy:
+    name: デプロイ
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+      - name: Yarnキャッシュディレクトリパス取得
+        id: yarn-cache
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+      - uses: actions/cache@v1
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install
+      - run: yarn build
+      - uses: actions/setup-python@v1
+      - name: AWS CLIをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install awscli
+      - name: Pull Request番号を取得
+        id: pull-number
+        run: echo "::set-output name=number::$(echo $GITHUB_REF | sed -e 's/refs\/pull\///' -e 's/\/merge//')"
+      - name: S3へデプロイ
+        run: |
+          aws s3 sync $SOURCE_DIR s3://$AWS_S3_BUCKET/$BASE_PATH --acl public-read
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SOURCE_DIR: ./dist
+          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
+          BASE_PATH: ${{ steps.pull-number.outputs.number }}
+  comment:
+    name: プレビューURLコメント
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - uses: actions/github-script@0.2.0
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { number, pull_request, repository } = context.payload;
+            const { name, owner } = repository;
+            const { login } = owner;
+            const { AWS_S3_BUCKET, AWS_S3_REGION } = process.env;
+            const previewUrl = `http://${AWS_S3_BUCKET}.s3-website-ap-northeast-1.amazonaws.com/${number}/`;
+
+            github.issues.createComment({
+              ...context.issue,
+              body: `プレビューは以下のURLでご確認ください。\n\n> ${previewUrl}`
+            });

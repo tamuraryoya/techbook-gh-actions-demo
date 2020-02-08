@@ -1,0 +1,39 @@
+name: stylelintチェック
+on: push
+
+jobs:
+  eslint:
+    name: stylelintチェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12.x
+      - name: Yarnキャッシュディレクトリパス取得
+        id: yarn-cache
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+      - uses: actions/cache@v1
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install
+      - run: yarn run lintcss:fix
+      - name: 自動修正が行われたかを取得
+        id: diff
+        run: |
+          if (git diff --shortstat | grep '[0-9]'); then echo "::set-output name=fixed::yes"; fi
+      - name: Gitアカウント情報を設定
+        if: steps.diff.outputs.fixed == 'yes'
+        run: |
+          git remote set-url origin https://github-actions:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY
+          git config --global user.name $GITHUB_ACTOR
+          git config --global user.email $GITHUB_ACTOR@users.noreply.github.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 自動修正の差分をプッシュ
+        if: steps.diff.outputs.fixed == 'yes'
+        run: |
+          git add .
+          git commit -m "stylelintエラーの自動修正分"
+          git push origin HEAD:${GITHUB_REF}
