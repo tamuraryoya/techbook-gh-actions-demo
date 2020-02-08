@@ -3,7 +3,7 @@ on:
   pull_request:
     type: [opened, synchronize, reopened]
 env:
-  AWS_S3_BUCKET: gh-actions-pr-preview
+  AWS_S3_BUCKET: try-techbook-gh-pages-demo
 
 jobs:
   deploy:
