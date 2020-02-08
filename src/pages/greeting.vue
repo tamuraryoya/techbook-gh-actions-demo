@@ -8,7 +8,7 @@
           .greeting-body
             p.greeting
               | こんにちは、
-              b.name {{ name1 }}
+              b.name {{ name }}
               | さん！
             p.message
               span.merker(:class="{ '-marked': isMessageMarked }")
